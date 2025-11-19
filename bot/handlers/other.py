@@ -1,0 +1,63 @@
+import hashlib
+import re
+
+from aiogram import Router, F
+from aiogram.types import CallbackQuery
+from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
+
+from bot.logger_mesh import logger
+
+router = Router()
+
+
+# Close message
+@router.callback_query(F.data == 'close')
+async def close_callback_handler(call: CallbackQuery):
+    """processing of message closure (deletion)"""
+    try:
+        await call.message.delete()
+    except (TelegramBadRequest, TelegramForbiddenError) as e:
+        logger.warning(f"Failed to delete message: {e}")
+
+
+@router.callback_query(F.data == 'dummy_button')
+async def dummy_button(call: CallbackQuery):
+    """“Empty” (dummy) button"""
+    await call.answer("")
+
+
+async def check_sub_channel(chat_member) -> bool:
+    """channel subscription check"""
+    return str(chat_member.status) != 'left'
+
+
+async def get_bot_info(event) -> str:
+    """Bot information (name)"""
+    bot = event.bot
+    me = await bot.get_me()
+    return me.username
+
+
+def generate_short_hash(text: str, length: int = 8) -> str:
+    """Generate a short hash for long strings to fit in callback_data"""
+    return hashlib.md5(text.encode()).hexdigest()[:length]
+
+
+def is_safe_item_name(name: str) -> bool:
+    """Additional security check of the product name"""
+    # Length check
+    if len(name) > 100 or len(name) < 1:
+        return False
+
+    # Checking for dangerous patterns
+    dangerous_patterns = [
+        r"(--|#|\/\*|\*\/)",  # SQL comments
+        r"\b(union|select|insert|update|delete|drop|exec)\b",  # SQL keywords
+        r"[<>\"']",  # Potential XSS characters (quotes still blocked for safety)
+        r"\.\.\/",  # Bypassing the path
+    ]
+
+    for pattern in dangerous_patterns:
+        if re.search(pattern, name, re.IGNORECASE):
+            return False
+    return True

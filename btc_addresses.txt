@@ -1,0 +1,24 @@
+# Bitcoin addresses for orders
+# Add your Bitcoin wallet addresses below (one per line)
+# Lines starting with # are comments and will be ignored
+#
+# Example format:
+# bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh
+# 1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa
+# 3J98t1WpEZ73CNmYviecrnyiWrnqRhWNLy
+#
+# IMPORTANT:
+# - Each address is used ONCE per order
+# - Used addresses are automatically removed from this file
+# - Add new addresses regularly to maintain availability
+# - The bot loads these addresses on startup
+#
+# To add addresses via CLI:
+# python bot_cli.py btc add bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh
+#
+# To add addresses from another file:
+# python bot_cli.py btc add --file your_addresses.txt
+#
+# ========================================
+# ADD YOUR BITCOIN ADDRESSES BELOW:
+# ========================================
