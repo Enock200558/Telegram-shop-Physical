@@ -47,11 +47,14 @@ def get_redis_storage() -> Optional[RedisStorage]:
     Returns None if Redis is not available.
     """
     try:
+        # Use None for password if empty to avoid AUTH error on non-authenticated Redis
+        redis_password = EnvKeys.REDIS_PASSWORD if EnvKeys.REDIS_PASSWORD else None
+
         redis = Redis(
             host=EnvKeys.REDIS_HOST,
             port=EnvKeys.REDIS_PORT,
             db=EnvKeys.REDIS_DB,
-            password=EnvKeys.REDIS_PASSWORD,
+            password=redis_password,
             decode_responses=False,
             socket_connect_timeout=5,
             socket_timeout=5,

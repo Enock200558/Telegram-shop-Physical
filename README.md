@@ -426,7 +426,7 @@ The application requires the following environment variables:
 <details>
 <summary><b>🗄️ Database (Manual Deploy)</b></summary>
 
-For manual deployment, configure `DATABASE_URL` in `bot/misc/env.py`:
+For manual deployment, configure `DATABASE_URL` in `bot/config/env.py`:
 
 ```python
 DATABASE_URL = "postgresql+psycopg2://user:password@localhost:5432/db_name"

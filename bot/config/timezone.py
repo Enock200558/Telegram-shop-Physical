@@ -38,9 +38,16 @@ def get_timezone() -> str:
             logger.warning(f"Invalid timezone '{timezone_str}' in database, falling back to UTC")
             _cached_timezone = "UTC"
     except Exception as e:
-        # This can happen if database tables don't exist yet
-        # Just use UTC as default and don't log error (normal on first startup)
-        logger.debug(f"Could not read timezone from database (this is normal on first startup): {e}")
+        # This can happen if database tables don't exist yet or database is unreachable
+        # Use UTC as safe default without logging error (normal during initialization)
+        # Only log at debug level to avoid spamming logs during startup
+        error_type = type(e).__name__
+        if "does not exist" in str(e) or "relation" in str(e):
+            # Table doesn't exist - completely normal during first-time initialization
+            logger.debug("Timezone table not yet created, using UTC (normal on first startup)")
+        else:
+            # Other database error - worth noting but not critical
+            logger.debug(f"Could not read timezone from database ({error_type}), using UTC: {e}")
         _cached_timezone = "UTC"
 
     return _cached_timezone

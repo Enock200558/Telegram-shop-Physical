@@ -26,17 +26,28 @@ monitoring_server = None
 cache_scheduler = None
 
 
-async def __on_start_up(dp: Dispatcher, bot: Bot) -> None:
-    """Initialize bot on startup"""
-    global recovery_manager, monitoring_server
-
-    # Registration of handlers and models
-    register_all_handlers(dp)
+def initialize_database() -> None:
+    """
+    Initialize database tables and timezone before logging system.
+    This must be called before configure_logging() to avoid querying non-existent tables.
+    """
+    # Register models and create all database tables
     register_models()
 
     # Initialize timezone from database AFTER tables are created
     timezone.reload_timezone()
-    logging.info(f"Timezone initialized: {timezone.get_timezone()}")
+
+    # Initialize export loggers (lazy-loaded) now that database is ready
+    from bot.export.custom_logging import initialize_export_loggers
+    initialize_export_loggers()
+
+
+async def __on_start_up(dp: Dispatcher, bot: Bot) -> None:
+    """Initialize bot on startup"""
+    global recovery_manager, monitoring_server
+
+    # Registration of handlers (models already registered in initialize_database)
+    register_all_handlers(dp)
 
     # Load Bitcoin addresses from file into database
     from bot.payments.bitcoin import load_bitcoin_addresses_from_file, get_bitcoin_address_stats
@@ -188,13 +199,15 @@ async def start_bot() -> None:
     """Start the bot with enhanced security and monitoring"""
     global cache_scheduler
 
-    # Logging Configuration
+    initialize_database()
+
     configure_logging(
         console=EnvKeys.LOG_TO_STDOUT == "1",
         debug=EnvKeys.DEBUG == "1"
     )
 
-    # Note: Timezone will be initialized in __on_start_up() after database tables are created
+    # Log successful database initialization
+    logging.info(f"Database initialized. Timezone: {timezone.get_timezone()}")
 
     # Disconnect unnecessary logs from aiogram
     logging.getLogger("aiogram.dispatcher").setLevel(logging.WARNING)

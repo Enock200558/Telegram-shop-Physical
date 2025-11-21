@@ -77,10 +77,44 @@ def _setup_logger(name: str, log_file: str, level=logging.INFO) -> logging.Logge
     return logger
 
 
-# Initialize loggers
-reference_code_logger = _setup_logger('reference_code', 'reference_code.log')
-orders_logger = _setup_logger('orders', 'orders.log')
-changes_logger = _setup_logger('changes', 'changes.log')
+# Lazy-initialized loggers (created on first use to avoid database access during import)
+_reference_code_logger: Optional[logging.Logger] = None
+_orders_logger: Optional[logging.Logger] = None
+_changes_logger: Optional[logging.Logger] = None
+
+
+def _get_reference_code_logger() -> logging.Logger:
+    """Get or create reference code logger"""
+    global _reference_code_logger
+    if _reference_code_logger is None:
+        _reference_code_logger = _setup_logger('reference_code', 'reference_code.log')
+    return _reference_code_logger
+
+
+def _get_orders_logger() -> logging.Logger:
+    """Get or create orders logger"""
+    global _orders_logger
+    if _orders_logger is None:
+        _orders_logger = _setup_logger('orders', 'orders.log')
+    return _orders_logger
+
+
+def _get_changes_logger() -> logging.Logger:
+    """Get or create changes logger"""
+    global _changes_logger
+    if _changes_logger is None:
+        _changes_logger = _setup_logger('changes', 'changes.log')
+    return _changes_logger
+
+
+def initialize_export_loggers() -> None:
+    """
+    Explicitly initialize all export loggers.
+    This can be called after database is ready to ensure loggers are created.
+    """
+    _get_reference_code_logger()
+    _get_orders_logger()
+    _get_changes_logger()
 
 
 def log_reference_code_creation(code: str, created_by: int, created_by_username: str,
@@ -103,7 +137,7 @@ def log_reference_code_creation(code: str, created_by: int, created_by_username:
     uses = str(max_uses) if max_uses else "UNLIMITED"
     note_text = note if note else "NO_NOTE"
 
-    reference_code_logger.info(
+    _get_reference_code_logger().info(
         f"CODE_CREATED | Code: {code} | Type: {code_type} | "
         f"Creator: @{created_by_username} (ID: {created_by}) | "
         f"Expires: {expiry} | Max Uses: {uses} | Note: {note_text}"
@@ -122,7 +156,7 @@ def log_reference_code_usage(code: str, used_by: int, used_by_username: str,
         referred_by: Telegram ID of code creator
         referred_by_username: Username of code creator
     """
-    reference_code_logger.info(
+    _get_reference_code_logger().info(
         f"CODE_USED | Code: {code} | "
         f"Used By: @{used_by_username} (ID: {used_by}) | "
         f"Referred By: @{referred_by_username} (ID: {referred_by})"
@@ -140,7 +174,7 @@ def log_reference_code_deactivation(code: str, deactivated_by: int,
         deactivated_by_username: Username of admin
         reason: Reason for deactivation
     """
-    reference_code_logger.info(
+    _get_reference_code_logger().info(
         f"CODE_DEACTIVATED | Code: {code} | "
         f"Deactivated By: @{deactivated_by_username} (ID: {deactivated_by}) | "
         f"Reason: {reason}"
@@ -171,7 +205,7 @@ def log_order_creation(order_id: int, buyer_id: int, buyer_username: str,
     # Use order code if available, otherwise fallback to ID
     identifier = f"Code: {order_code}" if order_code else f"ID: {order_id}"
 
-    orders_logger.info(
+    _get_orders_logger().info(
         f"ORDER_CREATED | {identifier} | "
         f"Buyer: @{buyer_username} (ID: {buyer_id}) | "
         f"Items: {items_summary} | Total Price: {total_price} | "
@@ -203,7 +237,7 @@ def log_order_completion(order_id: int, buyer_id: int, buyer_username: str,
     # Use order code if available, otherwise fallback to ID
     identifier = f"Code: {order_code}" if order_code else f"ID: {order_id}"
 
-    orders_logger.info(
+    _get_orders_logger().info(
         f"ORDER_COMPLETED | {identifier} | "
         f"Buyer: @{buyer_username} (ID: {buyer_id}) | "
         f"Items: {items_summary} | Total: {total}{completer_info}"
@@ -236,7 +270,7 @@ def log_order_cancellation(order_id: int, buyer_id: int, buyer_username: str,
     # Use order code if available, otherwise fallback to ID
     identifier = f"Code: {order_code}" if order_code else f"ID: {order_id}"
 
-    orders_logger.info(
+    _get_orders_logger().info(
         f"ORDER_CANCELED | {identifier} | "
         f"Buyer: @{buyer_username} (ID: {buyer_id}) | "
         f"Items: {items_summary} | Total: {total} | "
@@ -256,7 +290,7 @@ def log_customer_info_change(user_id: int, username: str, attribute: str,
         old_value: Old value
         new_value: New value
     """
-    changes_logger.info(
+    _get_changes_logger().info(
         f"@{username} (ID: {user_id}) CHANGED {attribute} | "
         f"Old: {old_value} | New: {new_value}"
     )
@@ -272,7 +306,7 @@ def log_bonus_payment(user_id: int, username: str, amount: float, total_bonus: f
         amount: Bonus amount received
         total_bonus: Total bonus balance
     """
-    reference_code_logger.info(
+    _get_reference_code_logger().info(
         f"BONUS_PAID | User: @{username} (ID: {user_id}) | "
         f"Amount: {amount} | Total Bonus: {total_bonus}"
     )
@@ -302,7 +336,7 @@ def log_bitcoin_address_assigned(address: str, order_id: int, buyer_id: int,
     # Use order code if available, otherwise fallback to ID
     identifier = f"Code: {order_code}" if order_code else f"ID: {order_id}"
 
-    orders_logger.info(
+    _get_orders_logger().info(
         f"BTC_ADDRESS_ASSIGNED | Address: {address} | "
         f"Order {identifier} | Buyer: @{buyer_username} (ID: {buyer_id})"
     )
@@ -321,7 +355,7 @@ def log_inventory_update(item_name: str, old_stock: int, new_stock: int,
         updated_by_username: Username
         method: Update method (CLI/TELEGRAM)
     """
-    changes_logger.info(
+    _get_changes_logger().info(
         f"INVENTORY_UPDATE | Item: {item_name} | "
         f"Old Stock: {old_stock} | New Stock: {new_stock} | "
         f"Updated By: @{updated_by_username} (ID: {updated_by}) | Method: {method}"

@@ -16,16 +16,15 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copying the application
 COPY . /app
 
-# Creating a user and directory
+# Creating a user and directories
 RUN useradd -m -u 1000 botuser \
     && mkdir -p /app/logs /app/data \
-    && touch /app/logs/bot.log /app/logs/audit.log \
     && chown -R botuser:botuser /app
 
 USER botuser
 
-# Expose port monitoring
+# Expose port for monitoring
 EXPOSE 9090
 
-# Run with migrations
-CMD bash -lc "alembic upgrade head && python run.py"
+# Run the bot (database tables are created automatically via SQLAlchemy)
+CMD ["python", "run.py"]

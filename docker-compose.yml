@@ -1,6 +1,9 @@
+version: '3.8'
+
 services:
   redis:
     image: redis:7-alpine
+    container_name: telegram_shop_redis
     command: redis-server --appendonly yes
     volumes:
       - redis_data:/data
@@ -12,44 +15,70 @@ services:
       timeout: 3s
       retries: 5
     restart: unless-stopped
+    networks:
+      - bot_network
 
   db:
     image: postgres:16
+    container_name: telegram_shop_db
     env_file:
       - .env
     environment:
-      DB_HOST: db
-      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:${DB_PORT}/${POSTGRES_DB}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PGDATA: /var/lib/postgresql/data/pgdata
+      # Locale settings to avoid warnings
+      LANG: en_US.utf8
+      LC_ALL: en_US.UTF-8
     volumes:
       - db_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
       interval: 5s
       timeout: 5s
       retries: 10
+    restart: unless-stopped
+    networks:
+      - bot_network
 
   bot:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: telegram_shop_bot
     env_file:
       - .env
     environment:
-      DB_HOST: db
-      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:${DB_PORT}/${POSTGRES_DB}
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      REDIS_DB: 0
+      # Override database host for Docker network
+      POSTGRES_HOST: db
+      # Redis configuration - using values from .env (external Redis Cloud)
+      # If you want to use local Redis container, uncomment these lines:
+      # REDIS_HOST: redis
+      # REDIS_PORT: 6379
+      # REDIS_DB: 0
+      # REDIS_PASSWORD: ""
+      # Monitoring configuration
       MONITORING_HOST: 0.0.0.0
       MONITORING_PORT: 9090
+      # Logging configuration
+      LOG_TO_STDOUT: 1
+      LOG_TO_FILE: 1
     ports:
       - "9090:9090"
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs
+      - ./btc_addresses.txt:/app/btc_addresses.txt:ro
     depends_on:
       db:
         condition: service_healthy
-      redis:
-        condition: service_healthy
+      # Removed redis dependency - using external Redis Cloud
+      # If using local Redis, uncomment:
+      # redis:
+      #   condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:9090/health" ]
@@ -57,7 +86,15 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+    networks:
+      - bot_network
 
 volumes:
   db_data:
+    driver: local
   redis_data:
+    driver: local
+
+networks:
+  bot_network:
+    driver: bridge
