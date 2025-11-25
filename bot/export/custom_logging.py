@@ -57,22 +57,32 @@ def _setup_logger(name: str, log_file: str, level=logging.INFO) -> logging.Logge
     if logger.handlers:
         return logger
 
-    # Create rotating file handler (10MB max, keep 5 backups)
-    handler = RotatingFileHandler(
-        LOGS_DIR / log_file,
-        maxBytes=10 * 1024 * 1024,  # 10MB
-        backupCount=5,
-        encoding='utf-8'
-    )
-
     # Create formatter with timezone-aware timestamp using TimezoneFormatter
     tz_formatter = TimezoneFormatter(
         '%(asctime)s - %(levelname)s - %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S %Z'
     )
 
-    handler.setFormatter(tz_formatter)
-    logger.addHandler(handler)
+    # Try to create rotating file handler, fallback to StreamHandler if permission denied
+    try:
+        handler = RotatingFileHandler(
+            LOGS_DIR / log_file,
+            maxBytes=10 * 1024 * 1024,  # 10MB
+            backupCount=5,
+            encoding='utf-8'
+        )
+        handler.setFormatter(tz_formatter)
+        logger.addHandler(handler)
+    except (PermissionError, OSError) as e:
+        # Fallback to stdout if file creation fails (e.g., permission issues)
+        import sys
+        handler = logging.StreamHandler(sys.stdout)
+        handler.setFormatter(tz_formatter)
+        logger.addHandler(handler)
+        logger.warning(
+            f"Could not create log file '{log_file}': {e}. "
+            f"Logging to stdout instead."
+        )
 
     return logger
 
